@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UnifyHub</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="logo.png" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      text-align: center;
+      padding: 40px 20px;
+      border-radius: 20px;
+      background: #111;
+      box-shadow: 0 0 20px #e91e63;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .logo {
+      width: 80px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+    }
+
+    button {
+      background: linear-gradient(45deg, #e91e63, #c21807);
+      border: none;
+      padding: 14px 24px;
+      margin: 10px auto;
+      font-size: 1rem;
+      border-radius: 10px;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+      display: block;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal-content {
+      background: #222;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 10px #e91e63;
+      text-align: center;
+      max-width: 300px;
+      width: 100%;
+    }
+
+    .modal-content input {
+      padding: 10px;
+      margin-top: 15px;
+      border-radius: 8px;
+      border: none;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    #errorModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 0, 63, 0.85);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    #errorModal .modal-content {
+      background: #333;
+      color: white;
+      box-shadow: 0 0 15px #ff1744;
+    }
+
+    @media (min-width: 600px) {
+      .logo {
+        width: 100px;
+      }
+
+      h1 {
+        font-size: 2.2rem;
+      }
+
+      button {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="logo.png" alt="Logo UnifyHub" class="logo" />
+    <h1>Bem-vindo ao UnifyHub</h1>
+    <button id="installBtn" style="display: none;">Instalar Aplicativo</button>
+    <button id="startBtn">Iniciar</button>
+  </div>
+
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <p>Por favor, digite sua senha secreta.</p>
+      <input type="password" id="passwordInput" placeholder="Senha secreta" />
+      <button onclick="checkPassword()">Confirmar</button>
+    </div>
+  </div>
+
+  <div class="modal" id="errorModal">
+    <div class="modal-content">
+      <p>Senha incorreta.</p>
+      <button onclick="closeErrorModal()">Fechar</button>
+    </div>
+  </div>
+
+  <script>
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'inline-block';
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          installBtn.style.display = 'none';
+        }
+        deferredPrompt = null;
+      }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      installBtn.style.display = 'none';
+    });
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+      document.getElementById('modal').style.display = 'flex';
+    });
+
+    function checkPassword() {
+      const input = document.getElementById('passwordInput').value;
+      if (input === '24250@Ln') {
+        window.location.href = 'https://ininitycodegov.github.io/UnifyHub/';
+      } else {
+        document.getElementById('errorModal').style.display = 'flex';
+      }
+    }
+
+    function closeErrorModal() {
+      document.getElementById('errorModal').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
