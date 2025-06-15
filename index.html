@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UnifyHub Autenticação</title>
+
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#121212" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-512.png" />
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body, html {
+      height: 100%;
+      background-color: #121212;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: white;
+      overflow: hidden;
+    }
+
+    #splashScreen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    #splashScreen video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #installModal, #offlineModal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      z-index: 99999;
+      padding: 20px;
+    }
+
+    #installModal button {
+      margin: 10px;
+      padding: 12px 24px;
+      border: none;
+      background-color: #6200ea;
+      color: white;
+      font-size: 1em;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #mainContent {
+      display: none;
+      height: 100vh;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      text-align: center;
+      padding: 15px;
+      border-radius: 8px;
+      background-color: #1e1e1e;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      max-width: 300px;
+      margin: auto;
+    }
+
+    .spinner {
+      border: 4px solid #6200ea;
+      border-top: 4px solid transparent;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      margin: 10px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="splashScreen">
+    <video id="splashVideo" autoplay muted playsinline>
+      <source src="splash.mp4" type="video/mp4" />
+    </video>
+  </div>
+
+  <div id="offlineModal">
+    <div>
+      <h2>Sem conexão com a Internet</h2>
+      <p>Por favor, conecte-se à rede para continuar.</p>
+    </div>
+  </div>
+
+  <div id="installModal">
+    <div>
+      <h2>Deseja instalar o aplicativo?</h2>
+      <button id="btnInstall">Instalar</button>
+      <button id="btnWeb">Usar na Web</button>
+    </div>
+  </div>
+
+  <div id="mainContent">
+    <div class="container">
+      <h1>Autenticação</h1>
+      <p id="status">Verificando...</p>
+      <div class="spinner" id="spinner"></div>
+    </div>
+  </div>
+
+  <script>
+    let deferredPrompt;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+
+    function askInstall() {
+      const alreadyDecided = localStorage.getItem('pwaDecision');
+      if (!alreadyDecided && deferredPrompt) {
+        document.getElementById('installModal').style.display = 'flex';
+
+        document.getElementById('btnInstall').onclick = async () => {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(() => {
+            localStorage.setItem('pwaDecision', 'installed');
+            proceedToAuth();
+          });
+        };
+
+        document.getElementById('btnWeb').onclick = () => {
+          localStorage.setItem('pwaDecision', 'web');
+          proceedToAuth();
+        };
+      } else {
+        proceedToAuth();
+      }
+    }
+
+    function isOnline() {
+      return navigator.onLine;
+    }
+
+    function showOfflineModal() {
+      document.getElementById('offlineModal').style.display = 'flex';
+    }
+
+    function proceedToAuth() {
+      document.getElementById('installModal').style.display = 'none';
+      document.getElementById('splashScreen').style.display = 'none';
+      document.getElementById('mainContent').style.display = 'flex';
+      authenticate();
+    }
+
+    const splashVideo = document.getElementById('splashVideo');
+    splashVideo.oncanplaythrough = () => {
+      splashVideo.play().then(() => {
+        splashVideo.onended = () => {
+          if (isOnline()) {
+            askInstall();
+          } else {
+            showOfflineModal();
+          }
+        };
+      }).catch(() => {
+        showOfflineModal();
+      });
+    };
+
+    // Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js');
+      });
+    }
+
+    // Autenticação
+    const status = document.getElementById('status');
+    const spinner = document.getElementById('spinner');
+    let hasAttempted = false;
+
+    async function checkBiometricSupport() {
+      if (window.PublicKeyCredential) {
+        return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      }
+      return false;
+    }
+
+    async function registerCredential() {
+      try {
+        const publicKey = {
+          challenge: new Uint8Array([1, 2, 3, 4, 5]),
+          rp: { name: "UnifyHub" },
+          user: {
+            id: new Uint8Array([1, 2, 3, 4]),
+            name: "user@example.com",
+            displayName: "Usuário"
+          },
+          pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required"
+          },
+          timeout: 60000
+        };
+        const credential = await navigator.credentials.create({ publicKey });
+        if (credential) {
+          localStorage.setItem('credentialId', btoa(String.fromCharCode(...new Uint8Array(credential.rawId))));
+          return credential;
+        }
+        return null;
+      } catch { return null; }
+    }
+
+    async function authenticate() {
+      if (hasAttempted) return;
+      hasAttempted = true;
+      spinner.style.display = 'block';
+
+      try {
+        const isSupported = await checkBiometricSupport();
+        if (!isSupported) {
+          status.textContent = 'Biometria não suportada.';
+          return;
+        }
+
+        const credentialId = localStorage.getItem('credentialId');
+        if (!credentialId) {
+          status.textContent = 'Registrando digital...';
+          const credential = await registerCredential();
+          if (!credential) throw new Error();
+        } else {
+          status.textContent = 'Use sua digital...';
+        }
+
+        const publicKey = {
+          challenge: new Uint8Array([1, 2, 3, 4, 5]),
+          allowCredentials: credentialId ? [{
+            id: new Uint8Array(atob(credentialId).split('').map(c => c.charCodeAt(0))),
+            type: 'public-key'
+          }] : [],
+          userVerification: 'required',
+          timeout: 60000
+        };
+
+        const auth = await navigator.credentials.get({ publicKey });
+        if (auth) {
+          status.textContent = 'Sucesso!';
+          setTimeout(() => {
+            window.location.href = 'https://ininitycodegov.github.io/UnifyHub/';
+          }, 1000);
+        } else {
+          status.textContent = 'Falha na autenticação.';
+        }
+      } catch {
+        status.textContent = 'Erro na autenticação.';
+      } finally {
+        spinner.style.display = 'none';
+      }
+    }
+
+    window.addEventListener('offline', showOfflineModal);
+  </script>
+</body>
+</html>
